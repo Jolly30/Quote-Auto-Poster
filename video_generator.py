@@ -47,7 +47,7 @@ VOICE_RATE = os.environ.get("VOICE_RATE", "-8%")
 VOICE_VOLUME = float(os.environ.get("VOICE_VOLUME", "0.7"))
 
 # Background music volume (e.g. "0.05" for very soft, down from default "0.12")
-MUSIC_VOLUME = float(os.environ.get("MUSIC_VOLUME", "0.1"))
+MUSIC_VOLUME = float(os.environ.get("MUSIC_VOLUME", "0.4"))
 
 # ==========================================
 # 100% FREE, DIRECT, UNLIMITED VERTICAL VIDEOS
