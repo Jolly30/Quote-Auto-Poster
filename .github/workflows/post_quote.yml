@@ -4,7 +4,7 @@ on:
   schedule:
     # Trigger automatically once a day at 9:00 AM UTC (3:30 PM Myanmar time)
     # You can change this cron schedule to run at any time you prefer!
-    - cron: "0 9 * * *"
+    - cron: "0 15 * * *"
   
   # Allows you to trigger the post manually from the GitHub website at any time!
   workflow_dispatch:
