@@ -47,7 +47,7 @@ VOICE_RATE = os.environ.get("VOICE_RATE", "-8%")
 VOICE_VOLUME = float(os.environ.get("VOICE_VOLUME", "0.7"))
 
 # Background music volume (e.g. "0.05" for very soft, down from default "0.12")
-MUSIC_VOLUME = float(os.environ.get("MUSIC_VOLUME", "0.5"))
+MUSIC_VOLUME = float(os.environ.get("MUSIC_VOLUME", "0.05"))
 
 # ==========================================
 # TEXT CAPTIONS & STYLING OPTIONS
@@ -756,26 +756,22 @@ if __name__ == "__main__":
     # 5. Render video locally via FFmpeg
     final_video = render_final_video(quote, font, audio_dur, "background.mp4", "voiceover.mp3", "final_post.mp4")
     
-    # 6. Upload compiled video to free cloud hosting (GitHub Releases for public repos, public CDN for private/local)
-    visibility = get_repository_visibility()
+    # 6. Upload compiled video to free cloud hosting (Always use highly reliable public CDN for Buffer compatibility)
     direct_link = None
     
-    if visibility == "public":
-        direct_link = upload_to_github_releases(final_video)
-        if not direct_link:
-            log("GitHub Release upload failed. Trying public CDN fallback...")
-            direct_link = upload_to_free_cdn(final_video)
-    elif visibility == "private":
-        log("GitHub Repository is PRIVATE. Release assets will NOT be accessible to Buffer.")
-        log("Uploading video to public CDN instead...")
+    if BUFFER_ACCESS_TOKEN and BUFFER_ACCESS_TOKEN != "dummy":
+        log("Uploading video to highly reliable public CDN (Catbox/Tmpfiles) for Buffer compatibility...")
         direct_link = upload_to_free_cdn(final_video)
+        
+        # Also upload to GitHub Releases as a backup archive if running on GitHub
+        if GITHUB_TOKEN and GITHUB_REPOSITORY:
+            try:
+                log("Archiving a copy of the video in GitHub Releases...")
+                upload_to_github_releases(final_video)
+            except Exception as archive_err:
+                log(f"WARNING: Could not archive video in GitHub Releases: {archive_err}")
     else:
-        # Local run
-        if BUFFER_ACCESS_TOKEN and BUFFER_ACCESS_TOKEN != "dummy":
-            log("Running locally with active Buffer token. Uploading to public CDN to post...")
-            direct_link = upload_to_free_cdn(final_video)
-        else:
-            log("Running locally (skipping cloud hosting). Output saved as 'final_post.mp4'.")
+        log("Running locally (skipping cloud hosting). Output saved as 'final_post.mp4'.")
     
     if direct_link:
         # 7. Post via Buffer API
