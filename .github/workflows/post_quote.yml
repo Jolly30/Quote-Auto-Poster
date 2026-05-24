@@ -1,6 +1,10 @@
 name: 24/7 TikTok Auto-Posting Quotes Generator
 
 on:
+  push:
+    branches:
+      - main
+      - master
   schedule:
     # Trigger automatically once a day at 9:00 AM UTC (3:30 PM Myanmar time)
     # You can change this cron schedule to run at any time you prefer!
