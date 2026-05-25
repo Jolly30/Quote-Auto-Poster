@@ -494,43 +494,45 @@ def get_repository_visibility():
     return "private"
 
 def upload_to_free_cdn(file_path):
-    log("Uploading compiled video to Tmpfiles.org (100% Free Public CDN)...")
-    url = "https://tmpfiles.org/api/v1/upload"
+    log("Uploading compiled video to Catbox.moe (100% Free Permanent Public CDN)...")
+    url_catbox = "https://catbox.moe/user/api.php"
+    payload = {"reqtype": "fileupload"}
     try:
         with open(file_path, "rb") as f:
-            files = {"file": f}
-            res = requests.post(url, files=files, timeout=90)
+            files = {"fileToUpload": f}
+            res = requests.post(url_catbox, data=payload, files=files, timeout=90)
         res.raise_for_status()
-        data = res.json()
-        if data.get("status") == "success":
-            upload_url = data["data"]["url"]
-            # Convert standard URL to direct download URL
-            direct_url = upload_url.replace("https://tmpfiles.org/", "https://tmpfiles.org/dl/")
-            log(f"Direct public stream link generated successfully:\n{direct_url}")
+        direct_url = res.text.strip()
+        if direct_url.startswith("https://"):
+            log(f"Direct public stream link generated successfully via Catbox:\n{direct_url}")
             return direct_url
         else:
-            raise Exception(f"Tmpfiles returned error status: {data}")
-    except Exception as e:
-        log(f"WARNING: Tmpfiles.org upload failed ({e}). Trying Catbox.moe fallback...")
+            raise Exception(f"Catbox returned unexpected response: {direct_url}")
+    except Exception as e_cat:
+        log(f"WARNING: Catbox.moe upload failed ({e_cat}). Trying Tmpfiles.org fallback...")
         
-        # Fallback 1: Catbox.moe
-        url_catbox = "https://catbox.moe/user/api.php"
-        payload = {"reqtype": "fileupload"}
+        # Fallback 1: Tmpfiles.org with 48h expiration (maximum)
+        log("Uploading compiled video to Tmpfiles.org (48-Hour Fallback CDN)...")
+        url_tmpfiles = "https://tmpfiles.org/api/v1/upload"
         try:
             with open(file_path, "rb") as f:
-                files = {"fileToUpload": f}
-                res = requests.post(url_catbox, data=payload, files=files, timeout=90)
+                files = {"file": f}
+                data = {"expire": "172800"}  # 48 hours in seconds (maximum allowed)
+                res = requests.post(url_tmpfiles, files=files, data=data, timeout=90)
             res.raise_for_status()
-            direct_url = res.text.strip()
-            if direct_url.startswith("https://"):
-                log(f"Direct public stream link generated successfully via Catbox:\n{direct_url}")
+            data = res.json()
+            if data.get("status") == "success":
+                upload_url = data["data"]["url"]
+                # Convert standard URL to direct download URL
+                direct_url = upload_url.replace("https://tmpfiles.org/", "https://tmpfiles.org/dl/")
+                log(f"Direct public stream link generated successfully via Tmpfiles (expires in 48h):\n{direct_url}")
                 return direct_url
             else:
-                raise Exception(f"Catbox returned unexpected response: {direct_url}")
-        except Exception as e_cat:
-            log(f"WARNING: Catbox.moe upload failed ({e_cat}). Trying Litterbox fallback...")
+                raise Exception(f"Tmpfiles returned error status: {data}")
+        except Exception as e_tmp:
+            log(f"WARNING: Tmpfiles.org upload failed ({e_tmp}). Trying Litterbox fallback...")
             
-            # Fallback 2: Litterbox
+            # Fallback 2: Litterbox (Temporary 24h upload)
             litter_url = "https://litterbox.catbox.moe/resources/internals/api.php"
             payload_litter = {
                 "reqtype": "fileupload",
@@ -543,13 +545,14 @@ def upload_to_free_cdn(file_path):
                 res.raise_for_status()
                 direct_url = res.text.strip()
                 if direct_url.startswith("https://"):
-                    log(f"Direct temporary Litterbox stream link generated:\n{direct_url}")
+                    log(f"Direct temporary Litterbox stream link generated (expires in 24h):\n{direct_url}")
                     return direct_url
                 else:
                     raise Exception(f"Litterbox returned unexpected response: {direct_url}")
             except Exception as ex:
                 log(f"ERROR: All public CDN uploads failed ({ex}).")
                 return None
+
 
 def post_to_tiktok_via_buffer(video_url, quote_text):
     log("Connecting to Buffer API to post to TikTok...")
