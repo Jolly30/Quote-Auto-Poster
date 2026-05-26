@@ -759,20 +759,35 @@ if __name__ == "__main__":
     # 5. Render video locally via FFmpeg
     final_video = render_final_video(quote, font, audio_dur, "background.mp4", "voiceover.mp3", "final_post.mp4")
     
-    # 6. Upload compiled video to free cloud hosting (Always use highly reliable public CDN for Buffer compatibility)
+    # 6. Upload compiled video to free cloud hosting
     direct_link = None
     
     if BUFFER_ACCESS_TOKEN and BUFFER_ACCESS_TOKEN != "dummy":
-        log("Uploading video to highly reliable public CDN (Catbox/Tmpfiles) for Buffer compatibility...")
-        direct_link = upload_to_free_cdn(final_video)
-        
-        # Also upload to GitHub Releases as a backup archive if running on GitHub
+        is_public_repo = False
         if GITHUB_TOKEN and GITHUB_REPOSITORY:
-            try:
-                log("Archiving a copy of the video in GitHub Releases...")
-                upload_to_github_releases(final_video)
-            except Exception as archive_err:
-                log(f"WARNING: Could not archive video in GitHub Releases: {archive_err}")
+            visibility = get_repository_visibility()
+            if visibility == "public":
+                is_public_repo = True
+                log("GitHub Repository is PUBLIC. Attempting to host video on GitHub Releases (Premium stable CDN)...")
+                try:
+                    direct_link = upload_to_github_releases(final_video)
+                    if direct_link:
+                        log(f"Using high-speed GitHub Release URL for Buffer: {direct_link}")
+                except Exception as e:
+                    log(f"WARNING: GitHub Release upload failed ({e}). Falling back to public CDN...")
+        
+        # Fallback to public CDN if not running on GitHub, or if repo is private, or if Release upload failed
+        if not direct_link:
+            log("Uploading video to public CDN (Catbox/Tmpfiles) for Buffer compatibility...")
+            direct_link = upload_to_free_cdn(final_video)
+            
+            # Archive a copy on GitHub Releases as backup if we haven't uploaded it there yet
+            if GITHUB_TOKEN and GITHUB_REPOSITORY and not is_public_repo:
+                try:
+                    log("Archiving a copy of the video in GitHub Releases...")
+                    upload_to_github_releases(final_video)
+                except Exception as archive_err:
+                    log(f"WARNING: Could not archive video in GitHub Releases: {archive_err}")
     else:
         log("Running locally (skipping cloud hosting). Output saved as 'final_post.mp4'.")
     
