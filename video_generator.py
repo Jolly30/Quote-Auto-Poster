@@ -65,15 +65,17 @@ TEXT_WRAP_WIDTH = int(os.environ.get("TEXT_WRAP_WIDTH", "25"))
 # Requires ZERO API keys, ZERO registrations, and has absolutely NO download limits!
 DIRECT_VIDEO_URLS = [
     "https://assets.mixkit.co/videos/preview/mixkit-starry-night-sky-over-a-silent-river-portrait-42861-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-portrait-42903-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-waves-crashing-on-rocks-from-above-portrait-43026-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-vertical-shot-of-a-beautiful-waterfall-in-a-forest-42817-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-clouds-and-blue-sky-time-lapse-portrait-42898-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-foggy-pine-forest-in-mountains-portrait-42814-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-vertical-shot-of-the-sun-rising-over-the-mountains-42880-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-rain-falling-on-a-window-portrait-42921-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-driving-on-a-forest-road-in-autumn-portrait-42878-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-slow-motion-of-a-desert-sunset-portrait-42886-large.mp4"
+    "https://assets.mixkit.co/videos/preview/mixkit-time-lapse-of-a-starry-night-sky-portrait-42858-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-vertical-shot-of-the-night-sky-with-stars-and-clouds-42934-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-light-trails-of-traffic-on-a-city-street-at-night-portrait-43033-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-neon-light-from-a-building-reflected-in-a-wet-street-portrait-43015-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-rain-falling-on-a-window-at-night-portrait-42999-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-wet-street-with-neon-lights-at-night-portrait-43029-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-cyberpunk-neon-city-street-portrait-43030-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-night-sky-with-shining-stars-portrait-42862-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-city-at-night-with-bright-lights-portrait-43027-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-futuristic-abstract-neon-hexagons-background-loop-portrait-42978-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-futuristic-abstract-glowing-neon-tunnel-portrait-42977-large.mp4"
 ]
 
 # ==========================================
@@ -131,8 +133,9 @@ def download_file(url, output_path, headers=None, use_curl=True):
 
 # Alternate search terms if Pexels API key is supplied
 PEXELS_SEARCH_TERMS = [
-    "foggy forest", "mountain drone", "ocean waves portrait", "starry sky vertical",
-    "peaceful river portrait", "vertical desert sunset", "aesthetic waterfall vertical"
+    "night city portrait", "cyberpunk neon vertical", "starry sky portrait",
+    "milky way space vertical", "night traffic lights vertical", "city skyline night portrait",
+    "abstract neon loop vertical", "galaxy space portrait", "night streets vertical"
 ]
 
 def log(message):
@@ -160,15 +163,16 @@ def get_random_quote():
             quotes = json.load(f)
         selected = random.choice(quotes)
         quote_text = selected['quote']
+        # On screen, only show the quote text (no "did you know" and no author)
         display_text = f"\"{quote_text}\""
-        if selected.get("author"):
-            display_text += f"\n\n— {selected['author']}"
+        # Spoken voiceover starts with "Did you know?"
+        speak_text = f"Did you know? {quote_text}"
         log(f"Selected Fact: {quote_text}")
-        return display_text, quote_text
+        return display_text, speak_text
     except Exception as e:
         log(f"ERROR reading quotes.json: {e}")
         fallback_text = "Bananas are curved because they grow towards the sun against gravity."
-        return f"\"{fallback_text}\"\n\n— Did you know?", fallback_text
+        return f"\"{fallback_text}\"", f"Did you know? {fallback_text}"
 
 def download_font():
     font_path = "font.ttf"
