@@ -154,20 +154,21 @@ def check_requirements():
         sys.exit(1)
 
 def get_random_quote():
-    log("Selecting motivational quote...")
+    log("Selecting fun fact...")
     try:
         with open("quotes.json", "r") as f:
             quotes = json.load(f)
         selected = random.choice(quotes)
-        quote_text = f"\"{selected['quote']}\""
+        quote_text = selected['quote']
+        display_text = f"\"{quote_text}\""
         if selected.get("author"):
-            quote_text += f"\n\n— {selected['author']}"
-        log(f"Selected Quote: {selected['quote']}")
-        return quote_text
+            display_text += f"\n\n— {selected['author']}"
+        log(f"Selected Fact: {quote_text}")
+        return display_text, quote_text
     except Exception as e:
         log(f"ERROR reading quotes.json: {e}")
-        # Bulletproof fallback quote
-        return "\"Success is not final, failure is not fatal: it is the courage to continue that counts.\"\n\n— Winston Churchill"
+        fallback_text = "Bananas are curved because they grow towards the sun against gravity."
+        return f"\"{fallback_text}\"\n\n— Did you know?", fallback_text
 
 def download_font():
     font_path = "font.ttf"
@@ -558,7 +559,7 @@ def post_to_tiktok_via_buffer(video_url, quote_text):
     log("Connecting to Buffer API to post to TikTok...")
     
     raw_caption = quote_text.split("\n\n")[0].replace("\"", "")
-    social_caption = f"\"{raw_caption}\" 💡✨ #motivation #inspiration #mindset #quotes #success #growth #fyp"
+    social_caption = f"\"{raw_caption}\" 💡✨ #funfacts #didyouknow #factsdaily #amazingfacts #knowledge #education #fyp #viral"
     
     # Try Modern GraphQL API First (Mandatory for new accounts in 2026)
     try:
@@ -741,13 +742,13 @@ if __name__ == "__main__":
     check_requirements()
     
     # 1. Select Quote
-    quote = get_random_quote()
+    quote_display, quote_speak = get_random_quote()
     
     # 2. Setup font
     font = download_font()
     
     # 3. Generate speech voice file
-    generate_voiceover(quote, "voiceover.mp3")
+    generate_voiceover(quote_speak, "voiceover.mp3")
     audio_dur = get_audio_duration("voiceover.mp3")
     
     # 4. Download background video (Mixkit Direct CDN or Pexels)
@@ -757,7 +758,7 @@ if __name__ == "__main__":
     music_downloaded = download_background_music("music.ogg")
     
     # 5. Render video locally via FFmpeg
-    final_video = render_final_video(quote, font, audio_dur, "background.mp4", "voiceover.mp3", "final_post.mp4")
+    final_video = render_final_video(quote_display, font, audio_dur, "background.mp4", "voiceover.mp3", "final_post.mp4")
     
     # 6. Upload compiled video to free cloud hosting
     direct_link = None
@@ -793,7 +794,7 @@ if __name__ == "__main__":
     
     if direct_link:
         # 7. Post via Buffer API
-        post_to_tiktok_via_buffer(direct_link, quote)
+        post_to_tiktok_via_buffer(direct_link, quote_display)
         
         # Clean up temporary work files
         clean_temp_files(delete_music=music_downloaded)
