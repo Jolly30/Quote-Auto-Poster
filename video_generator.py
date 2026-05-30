@@ -14,7 +14,7 @@ from datetime import datetime
 # ==========================================
 # Unique compliant User-Agent to bypass Wikimedia and public CDN bot throttling (429/403)
 HEADERS = {
-    "User-Agent": "TikTokQuotesAutoPoster/1.0 (https://github.com/Jolly30/Tiktok-Auto-Poster; contact@example.com) PythonRequests/2.31"
+    "User-Agent": "TikTokQuotesAutoPoster/1.0 (https://github.com/Jolly30/quote-auto-poster; contact@example.com) PythonRequests/2.31"
 }
 
 # Buffer Access Token (required to post to TikTok)
