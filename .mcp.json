@@ -2,7 +2,7 @@
   "mcpServers": {
     "sqlite": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sqlite"]
+      "args": ["-y", "@modelcontextprotocol/server-sqlite", "/Users/yadanar/Desktop/Quote Auto Poster/quotes.db"]
     }
   }
 }
