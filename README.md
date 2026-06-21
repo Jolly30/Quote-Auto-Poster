@@ -18,6 +18,13 @@ quotes.json → random pick → edge-tts voiceover → FFmpeg overlay on stock v
 6. **CDN upload** — hosts via GitHub Releases (public repos) or Catbox/Tmpfiles (private)
 7. **Buffer post** — schedules the video on your connected TikTok account
 
+## Live Demo
+
+📺 **TikTok:** [@mr.cheese202](https://www.tiktok.com/@mr.cheese202)
+- 32 followers, 1,678 likes
+- 16+ videos posted automatically
+- Daily posts via GitHub Actions → Buffer API → TikTok
+
 ## Quick Start
 
 ```bash
@@ -53,13 +60,32 @@ python video_generator.py
 - **Captions:** Auto-scaling centered white text with black border
 - **Music:** Soft ambient piano (optional)
 
+## Database
+
+The project includes a SQLite database (`quotes.db`) for tracking:
+- Quote usage (which quotes have been posted)
+- Post history (timestamps, status, CDN URLs)
+- Analytics (views, likes, comments, shares)
+
+```bash
+# Setup database from quotes.json
+python setup_db.py
+
+# Query via SQLite MCP or directly
+sqlite3 quotes.db "SELECT * FROM quotes WHERE used_count = 0"
+```
+
 ## Files
 
 ```
 .
 ├── video_generator.py    # Main pipeline script
 ├── quotes.json           # 100+ curated motivational quotes
+├── quotes.db             # SQLite database for tracking
+├── setup_db.py           # Database setup script
+├── db_utils.py           # Database helper functions
 ├── font.ttf              # Montserrat Bold font
 ├── requirements.txt      # Python dependencies
+├── pitch.md              # Marp presentation slides
 └── final_post.mp4        # Last generated video
 ```
