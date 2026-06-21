@@ -8,6 +8,7 @@ import textwrap
 import asyncio
 import edge_tts
 from datetime import datetime
+import db_utils
 
 # ==========================================
 # CONFIGURATION & API KEYS FROM ENVIRONMENT
@@ -157,22 +158,29 @@ def check_requirements():
         sys.exit(1)
 
 def get_random_quote():
-    log("Selecting fun fact...")
+    log("Selecting fun fact from SQLite database...")
     try:
-        with open("quotes.json", "r") as f:
-            quotes = json.load(f)
-        selected = random.choice(quotes)
-        quote_text = selected['quote']
+        quote_data = db_utils.get_least_used_quote()
+        if not quote_data:
+            raise Exception("No quotes found in database.")
+        
+        quote_text = quote_data["quote"]
+        quote_id = quote_data["id"]
+        
         # On screen, only show the quote text (no "did you know" and no author)
         display_text = f"\"{quote_text}\""
         # Spoken voiceover starts with "Did you know?"
         speak_text = f"Did you know? {quote_text}"
         log(f"Selected Fact: {quote_text}")
-        return display_text, speak_text
+        
+        # Mark as used
+        db_utils.mark_quote_used(quote_id)
+        
+        return display_text, speak_text, quote_id
     except Exception as e:
-        log(f"ERROR reading quotes.json: {e}")
+        log(f"ERROR reading from database: {e}")
         fallback_text = "Bananas are curved because they grow towards the sun against gravity."
-        return f"\"{fallback_text}\"", f"Did you know? {fallback_text}"
+        return f"\"{fallback_text}\"", f"Did you know? {fallback_text}", None
 
 def download_font():
     font_path = "font.ttf"
@@ -746,7 +754,7 @@ if __name__ == "__main__":
     check_requirements()
     
     # 1. Select Quote
-    quote_display, quote_speak = get_random_quote()
+    quote_display, quote_speak, quote_id = get_random_quote()
     
     # 2. Setup font
     font = download_font()
@@ -800,6 +808,9 @@ if __name__ == "__main__":
         # 7. Post via Buffer API
         post_to_tiktok_via_buffer(direct_link, quote_display)
         
+        if quote_id:
+            db_utils.record_post(quote_id, video_path="final_post.mp4", cdn_url=direct_link, status="posted")
+            
         # Clean up temporary work files
         clean_temp_files(delete_music=music_downloaded)
     else:
