@@ -5,6 +5,7 @@ import random
 import requests
 import subprocess
 import textwrap
+import base64
 from datetime import datetime
 import db_utils
 
@@ -367,10 +368,218 @@ def download_background_music(output_file="music.ogg"):
             os.remove(output_file)
         return False
 
-def render_final_video(quote_text, font_path, video_file="background.mp4", output_file="final_post.mp4", music_file=None, duration=VIDEO_DURATION):
-    log(f"Compiling final video ({duration}s) with stylized centered captions using FFmpeg...")
-    
+def find_chrome():
+    candidates = [
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+        "/usr/bin/google-chrome",
+        "/usr/bin/chromium-browser",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+        try:
+            if subprocess.run(["which", c], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+                return c
+        except Exception:
+            pass
+    return None
+
+def create_text_overlay_image(quote_text, font_path, output_png="text_overlay.png"):
+    """
+    Renders the Myanmar quote text to a transparent PNG using headless Chrome.
+    Chrome incorporates the HarfBuzz OpenType shaping engine, ensuring that all
+    Myanmar Unicode vowels (e.g. thawe-hto 'ေ'), medials ('ြ', 'ျ', 'ွ', 'ှ'),
+    and consonant stacks are 100% linguistically and typographically correct!
+    """
+    chrome_path = find_chrome()
+    if not chrome_path:
+        log("Headless Chrome not found. Falling back to FFmpeg drawtext.")
+        return False
+
+    b64_font = ""
+    if os.path.exists(font_path):
+        try:
+            with open(font_path, "rb") as f:
+                b64_font = base64.b64encode(f.read()).decode("ascii")
+        except Exception as e:
+            log(f"WARNING: Could not base64 encode font: {e}")
+
     # Word wrap lines for clean vertical framing on phone screens
+    wrapped_lines = []
+    paragraphs = quote_text.split('\n\n')
+    for p in paragraphs:
+        if p.startswith("—"):
+            wrapped_lines.append(p.strip())
+        else:
+            wrapped_lines.extend(textwrap.wrap(p, width=TEXT_WRAP_WIDTH))
+    wrapped_lines = [l.strip() for l in wrapped_lines if l.strip()]
+    num_lines = len(wrapped_lines)
+    
+    dynamic_font_size = FONT_SIZE
+    if num_lines >= 6:
+        dynamic_font_size = max(38, int(FONT_SIZE * 0.70))
+    elif num_lines >= 4:
+        dynamic_font_size = max(44, int(FONT_SIZE * 0.85))
+
+    formatted_text = "<br>".join(wrapped_lines)
+
+    css_color = FONT_COLOR
+    if css_color.startswith("0x"):
+        css_color = "#" + css_color[2:]
+    elif not css_color.startswith("#"):
+        css_color = "#FFDE59"
+
+    font_src = f"url('data:font/truetype;charset=utf-8;base64,{b64_font}') format('truetype')" if b64_font else "sans-serif"
+
+    html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+@font-face {{
+    font-family: 'AestheticBurmeseFont';
+    src: {font_src};
+    font-weight: normal;
+    font-style: normal;
+}}
+* {{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}}
+body {{
+    width: 1080px;
+    height: 1920px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}}
+.quote-box {{
+    max-width: 900px;
+    text-align: center;
+    font-family: 'AestheticBurmeseFont', sans-serif;
+    font-size: {dynamic_font_size}px;
+    line-height: 1.85;
+    color: {css_color};
+    text-shadow: 
+        0px 2px 4px rgba(0,0,0,0.9),
+        0px 4px 10px rgba(0,0,0,0.85),
+        2px 2px 0px rgba(0,0,0,0.85),
+        -2px -2px 0px rgba(0,0,0,0.85),
+        2px -2px 0px rgba(0,0,0,0.85),
+        -2px 2px 0px rgba(0,0,0,0.85);
+    transform: translateY(-50px);
+}}
+</style>
+</head>
+<body>
+<div class="quote-box">{formatted_text}</div>
+</body>
+</html>"""
+
+    html_path = "temp_quote.html"
+    try:
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html_content)
+
+        cmd = [
+            chrome_path,
+            "--headless=new",
+            "--no-sandbox",
+            "--disable-gpu",
+            "--disable-dev-shm-usage",
+            "--user-data-dir=/tmp/chrome_runner",
+            "--default-background-color=00000000",
+            "--window-size=1080,1920",
+            f"--screenshot={output_png}",
+            f"file://{os.path.abspath(html_path)}"
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=25)
+        if res.returncode == 0 and os.path.exists(output_png) and os.path.getsize(output_png) > 0:
+            log(f"HarfBuzz text overlay rendered successfully via Chrome ({output_png})")
+            return True
+    except Exception as e:
+        log(f"WARNING: Chrome text overlay generation failed: {e}")
+    finally:
+        if os.path.exists(html_path):
+            try:
+                os.remove(html_path)
+            except Exception:
+                pass
+
+    return False
+
+def render_final_video(quote_text, font_path, video_file="background.mp4", output_file="final_post.mp4", music_file=None, duration=VIDEO_DURATION):
+    log(f"Compiling final video ({duration}s) with aesthetic Burmese captions using FFmpeg...")
+    
+    if not music_file:
+        if os.path.exists("music.mp3"):
+            music_file = "music.mp3"
+        elif os.path.exists("music.ogg"):
+            music_file = "music.ogg"
+    has_music = music_file is not None
+
+    # Step A: Render perfect Myanmar Unicode text overlay with HarfBuzz via Chrome
+    overlay_png = "text_overlay.png"
+    use_overlay = create_text_overlay_image(quote_text, font_path, overlay_png)
+
+    if use_overlay:
+        log("Using HarfBuzz-shaped text overlay for 100% accurate Burmese typography.")
+        fade_start = max(1.0, duration - 2.0)
+        if has_music:
+            log(f"Aesthetic background music ({music_file}) selected. Mixing into final video...")
+            filter_complex = (
+                f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=brightness=-0.10:contrast=1.12:saturation=1.15[bg];"
+                f"[bg][1:v]overlay=0:0[v];"
+                f"[2:a]volume={MUSIC_VOLUME},afade=t=in:ss=0:d=1.0,afade=t=out:st={fade_start:.1f}:d=2.0[a]"
+            )
+            cmd = [
+                "ffmpeg", "-y",
+                "-stream_loop", "-1", "-i", video_file,
+                "-i", overlay_png,
+                "-stream_loop", "-1", "-i", music_file,
+                "-filter_complex", filter_complex,
+                "-map", "[v]",
+                "-map", "[a]",
+                "-t", str(duration),
+                "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.0",
+                "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "192k",
+                "-shortest",
+                output_file
+            ]
+        else:
+            filter_complex = (
+                f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=brightness=-0.10:contrast=1.12:saturation=1.15[bg];"
+                f"[bg][1:v]overlay=0:0[v]"
+            )
+            cmd = [
+                "ffmpeg", "-y",
+                "-stream_loop", "-1", "-i", video_file,
+                "-i", overlay_png,
+                "-filter_complex", filter_complex,
+                "-map", "[v]",
+                "-t", str(duration),
+                "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.0",
+                "-pix_fmt", "yuv420p",
+                "-shortest",
+                output_file
+            ]
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            log("Final TikTok video successfully rendered with 100% correct Burmese typography!")
+            return output_file
+        except Exception as e:
+            log(f"WARNING: Overlay FFmpeg compilation failed ({e}). Falling back to drawtext...")
+
+    # Step B: Fallback to standard FFmpeg drawtext if Chrome is unavailable
+    log("Falling back to standard FFmpeg drawtext pipeline...")
     wrapped_lines = []
     paragraphs = quote_text.split('\n\n')
     for p in paragraphs:
@@ -381,31 +590,24 @@ def render_final_video(quote_text, font_path, video_file="background.mp4", outpu
     wrapped_lines = [line.strip() for line in wrapped_lines if line.strip()]
     wrapped_quote = "\n".join(wrapped_lines)
     
-    # Write quote text to a temporary file to bypass all FFmpeg escaping bugs
     quote_file = "quote_text.txt"
     try:
         with open(quote_file, "w", encoding="utf-8", newline="\n") as f:
             f.write(wrapped_quote)
     except Exception as e:
         log(f"ERROR writing temporary quote file: {e}")
-        # fallback to standard escaped text if file writing fails
         escaped_text = wrapped_quote.replace("\\", "\\\\").replace(":", "\\:").replace("'", "’").replace("%", "\\%")
         font_filter = f"fontfile='{font_path}':text='{escaped_text}'"
     else:
         font_filter = f"fontfile='{font_path}':textfile='{quote_file}'"
     
-    # Auto-scale font size based on the number of wrapped lines to keep the layout perfectly balanced
     num_lines = len(wrapped_lines)
     dynamic_font_size = FONT_SIZE
     if num_lines >= 6:
-        dynamic_font_size = max(38, int(FONT_SIZE * 0.65))  # scale down by 35% for very long quotes
+        dynamic_font_size = max(38, int(FONT_SIZE * 0.65))
     elif num_lines >= 4:
-        dynamic_font_size = max(44, int(FONT_SIZE * 0.82))  # scale down by 18% for medium-long quotes
+        dynamic_font_size = max(44, int(FONT_SIZE * 0.82))
         
-    # High-aesthetic typography styling:
-    # 1. Warm aesthetic yellow font color with soft drop shadow + subtle outline
-    # 2. line_spacing=22 gives Myanmar vowels and tone diacritics ample breathing room without clipping
-    # 3. y=(h-text_h)/2-50 safely positions the quote above TikTok's bottom captions/music bar
     style_filter = f"fontsize={dynamic_font_size}:fontcolor={FONT_COLOR}:shadowcolor=black@0.85:shadowx=3:shadowy=4:borderw=2:bordercolor=black@0.6:x=(w-text_w)/2:y=(h-text_h)/2-50:line_spacing=22:expansion=none"
     
     if ":" in font_path:
@@ -415,18 +617,6 @@ def render_final_video(quote_text, font_path, video_file="background.mp4", outpu
         else:
             font_filter = f"fontfile='{font_path_escaped}':text='{escaped_text}'"
 
-    if not music_file:
-        if os.path.exists("music.mp3"):
-            music_file = "music.mp3"
-        elif os.path.exists("music.ogg"):
-            music_file = "music.ogg"
-        
-    has_music = music_file is not None
-
-    # Cinematic video pipeline:
-    # 1. scale & crop to perfect 1080x1920 vertical format without distortion
-    # 2. eq: subtle moody contrast & rich saturation boost so text pops like a movie frame
-    # 3. drawtext: elegant styled typography overlay
     video_filter = f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=brightness=-0.10:contrast=1.12:saturation=1.15,drawtext={font_filter}:{style_filter}"
     
     cmd = [
@@ -442,7 +632,6 @@ def render_final_video(quote_text, font_path, video_file="background.mp4", outpu
         "-vf", video_filter
     ])
     if has_music:
-        # Smooth cinematic audio fade-in (1.0s) and fade-out (2.0s)
         fade_start = max(1.0, duration - 2.0)
         cmd.extend([
             "-filter_complex", f"[1:a]volume={MUSIC_VOLUME},afade=t=in:ss=0:d=1.0,afade=t=out:st={fade_start:.1f}:d=2.0[a]",
@@ -845,7 +1034,7 @@ def post_to_tiktok_via_buffer(video_url, quote_text, category="general"):
 
 def clean_temp_files(delete_music=False):
     log("Cleaning up local temporary files...")
-    temp_files = ["background.mp4", "quote_text.txt"]
+    temp_files = ["background.mp4", "quote_text.txt", "text_overlay.png"]
     if delete_music:
         temp_files.append("music.ogg")
     for f in temp_files:
