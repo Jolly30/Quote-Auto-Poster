@@ -190,7 +190,9 @@ def download_font():
     # 1. Prioritize local custom font files (fonts/ folder or root)
     custom_fonts = [
         os.path.join("fonts", "font.ttf"),
+        os.path.join("fonts", "Z09LatYaySat-Regular.ttf"),
         "font.ttf",
+        "Z09LatYaySat-Regular.ttf",
         "ရိုးရာ_Regular (2).ttf"
     ]
     for font_path in custom_fonts:
@@ -373,15 +375,16 @@ def render_final_video(quote_text, font_path, video_file="background.mp4", outpu
     paragraphs = quote_text.split('\n\n')
     for p in paragraphs:
         if p.startswith("—"):
-            wrapped_lines.append(p)
+            wrapped_lines.append(p.strip())
         else:
             wrapped_lines.extend(textwrap.wrap(p, width=TEXT_WRAP_WIDTH))
+    wrapped_lines = [line.strip() for line in wrapped_lines if line.strip()]
     wrapped_quote = "\n".join(wrapped_lines)
     
     # Write quote text to a temporary file to bypass all FFmpeg escaping bugs
     quote_file = "quote_text.txt"
     try:
-        with open(quote_file, "w", encoding="utf-8") as f:
+        with open(quote_file, "w", encoding="utf-8", newline="\n") as f:
             f.write(wrapped_quote)
     except Exception as e:
         log(f"ERROR writing temporary quote file: {e}")
