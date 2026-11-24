@@ -388,6 +388,82 @@ def find_chrome():
             pass
     return None
 
+def balance_burmese_segment(text, target_width=32):
+    """
+    Optimally partitions Burmese phrases into visually balanced lines using dynamic programming,
+    strictly eliminating isolated orphan words and jagged line layouts.
+    """
+    tokens = text.strip().split()
+    if not tokens:
+        return [text]
+    n = len(tokens)
+    total_len = sum(len(t) for t in tokens) + n - 1
+    if total_len <= target_width + 4:
+        return [text]
+
+    dp = [(float('inf'), -1)] * (n + 1)
+    dp[0] = (0, -1)
+
+    for i in range(1, n + 1):
+        for j in range(i - 1, -1, -1):
+            line = ' '.join(tokens[j:i])
+            length = len(line)
+            if length > target_width * 1.35 and j < i - 1:
+                break
+            
+            diff = target_width - length
+            cost = diff * diff
+            # Severe penalty for awkward short lines / orphan words (less than 14 characters)
+            if length < 14 and (i < n or j > 0):
+                cost += 1200 * (14 - length)
+                
+            total_cost = dp[j][0] + cost
+            if total_cost < dp[i][0]:
+                dp[i] = (total_cost, j)
+
+    lines = []
+    curr = n
+    while curr > 0:
+        prev = dp[curr][1]
+        lines.append(' '.join(tokens[prev:curr]))
+        curr = prev
+    lines.reverse()
+    return lines
+
+def format_neat_burmese_quote(quote_text, target_width=32):
+    """
+    Intelligently shapes Burmese quotes into clean, balanced, aesthetic paragraphs:
+    1. Preserves explicit newlines (\n) or author attributions (—).
+    2. Breaks at natural pause points ('... ' or '...').
+    3. Balances line lengths evenly across phrases to eliminate ugly orphan words.
+    """
+    paragraphs = quote_text.split('\n\n')
+    all_lines = []
+    for p in paragraphs:
+        p = p.strip()
+        if not p:
+            continue
+        if p.startswith("—"):
+            all_lines.append(p)
+            continue
+        
+        if '... ' in p:
+            parts = [pt.strip() for pt in p.split('... ') if pt.strip()]
+            for i, part in enumerate(parts):
+                sub_lines = balance_burmese_segment(part, target_width)
+                if i < len(parts) - 1:
+                    sub_lines[-1] = sub_lines[-1] + '...'
+                all_lines.extend(sub_lines)
+        elif '\n' in p:
+            for sub_p in p.split('\n'):
+                sub_p = sub_p.strip()
+                if sub_p:
+                    all_lines.extend(balance_burmese_segment(sub_p, target_width))
+        else:
+            all_lines.extend(balance_burmese_segment(p, target_width))
+            
+    return [l.strip() for l in all_lines if l.strip()]
+
 def create_text_overlay_image(quote_text, font_path, output_png="text_overlay.png"):
     """
     Renders the Myanmar quote text to a transparent PNG using headless Chrome.
@@ -408,22 +484,15 @@ def create_text_overlay_image(quote_text, font_path, output_png="text_overlay.pn
         except Exception as e:
             log(f"WARNING: Could not base64 encode font: {e}")
 
-    # Word wrap lines for clean vertical framing on phone screens
-    wrapped_lines = []
-    paragraphs = quote_text.split('\n\n')
-    for p in paragraphs:
-        if p.startswith("—"):
-            wrapped_lines.append(p.strip())
-        else:
-            wrapped_lines.extend(textwrap.wrap(p, width=TEXT_WRAP_WIDTH))
-    wrapped_lines = [l.strip() for l in wrapped_lines if l.strip()]
+    # Harmoniously balance lines for neat, balanced paragraph shape
+    wrapped_lines = format_neat_burmese_quote(quote_text, target_width=32)
     num_lines = len(wrapped_lines)
     
     dynamic_font_size = FONT_SIZE
-    if num_lines >= 6:
-        dynamic_font_size = max(38, int(FONT_SIZE * 0.70))
-    elif num_lines >= 4:
-        dynamic_font_size = max(44, int(FONT_SIZE * 0.85))
+    if num_lines >= 5:
+        dynamic_font_size = max(38, int(FONT_SIZE * 0.72))
+    elif num_lines >= 3:
+        dynamic_font_size = max(46, int(FONT_SIZE * 0.88))
 
     formatted_text = "<br>".join(wrapped_lines)
 
@@ -461,12 +530,15 @@ body {{
     overflow: hidden;
 }}
 .quote-box {{
-    max-width: 900px;
+    max-width: 860px;
+    margin: 0 auto;
     text-align: center;
     font-family: 'AestheticBurmeseFont', sans-serif;
     font-size: {dynamic_font_size}px;
-    line-height: 1.85;
+    line-height: 1.78;
     color: {css_color};
+    text-wrap: balance;
+    word-break: normal;
     text-shadow: 
         0px 2px 4px rgba(0,0,0,0.9),
         0px 4px 10px rgba(0,0,0,0.85),
@@ -475,6 +547,7 @@ body {{
         2px -2px 0px rgba(0,0,0,0.85),
         -2px 2px 0px rgba(0,0,0,0.85);
     transform: translateY(-50px);
+    padding: 0 20px;
 }}
 </style>
 </head>
@@ -580,14 +653,7 @@ def render_final_video(quote_text, font_path, video_file="background.mp4", outpu
 
     # Step B: Fallback to standard FFmpeg drawtext if Chrome is unavailable
     log("Falling back to standard FFmpeg drawtext pipeline...")
-    wrapped_lines = []
-    paragraphs = quote_text.split('\n\n')
-    for p in paragraphs:
-        if p.startswith("—"):
-            wrapped_lines.append(p.strip())
-        else:
-            wrapped_lines.extend(textwrap.wrap(p, width=TEXT_WRAP_WIDTH))
-    wrapped_lines = [line.strip() for line in wrapped_lines if line.strip()]
+    wrapped_lines = format_neat_burmese_quote(quote_text, target_width=32)
     wrapped_quote = "\n".join(wrapped_lines)
     
     quote_file = "quote_text.txt"
