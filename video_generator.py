@@ -187,8 +187,9 @@ def get_random_quote(category=None):
         return fallback_text, None, "general"
 
 def download_font():
-    # 1. Prioritize local custom font files
+    # 1. Prioritize local custom font files (fonts/ folder or root)
     custom_fonts = [
+        os.path.join("fonts", "font.ttf"),
         "font.ttf",
         "ရိုးရာ_Regular (2).ttf"
     ]
@@ -198,7 +199,7 @@ def download_font():
             return font_path
     
     log("Downloading premium modern font (Montserrat)...")
-    font_path = "font.ttf"
+    font_path = os.path.join("fonts", "font.ttf") if os.path.isdir("fonts") else "font.ttf"
     url = "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf"
     if download_file(url, font_path):
         log("Font downloaded successfully.")
@@ -289,17 +290,20 @@ def download_background_video(output_file="background.mp4", category=None):
 def get_category_music(category=None):
     """
     Finds a random music track from the corresponding category folder
-    (e.g., 'romance', 'sad', 'motivate'/'motivation', 'neutral').
-    Falls back to any local music in root or any category folder.
+    (e.g., 'music/romance', 'romance', 'music/sad', 'sad', etc.).
+    Falls back to any local music in music/ or root or any category folder.
     """
     category_folders = []
     if category:
         cat_lower = category.lower().strip()
-        category_folders.append(cat_lower)
+        category_folders.extend([
+            os.path.join("music", cat_lower),
+            cat_lower
+        ])
         if cat_lower == "motivation":
-            category_folders.append("motivate")
+            category_folders.extend([os.path.join("music", "motivate"), "motivate"])
         elif cat_lower == "motivate":
-            category_folders.append("motivation")
+            category_folders.extend([os.path.join("music", "motivation"), "motivation"])
             
     for folder in category_folders:
         if os.path.isdir(folder):
@@ -312,20 +316,25 @@ def get_category_music(category=None):
                 log(f"Selected category background music from [{folder}]: {chosen}")
                 return chosen
 
-    # Check root level local music
-    for f in os.listdir("."):
-        if f.lower().startswith("music.") and f.lower().endswith(AUDIO_EXTENSIONS):
-            log(f"Using root music file: {f}")
-            return f
+    # Check music/ root or project root for music files
+    for base_dir in ["music", "."]:
+        if os.path.isdir(base_dir):
+            for f in os.listdir(base_dir):
+                if f.lower().startswith("music.") and f.lower().endswith(AUDIO_EXTENSIONS):
+                    chosen = os.path.join(base_dir, f) if base_dir != "." else f
+                    log(f"Using general music file: {chosen}")
+                    return chosen
 
     # Fallback to any track from any category folder
     all_tracks = []
-    for d in ["romance", "sad", "motivate", "motivation", "neutral"]:
-        if os.path.isdir(d):
-            all_tracks.extend([
-                os.path.join(d, f) for f in os.listdir(d)
-                if f.lower().endswith(AUDIO_EXTENSIONS) and not f.startswith(".")
-            ])
+    for base_dir in ["music", "."]:
+        for d in ["romance", "sad", "motivate", "motivation", "neutral"]:
+            target_dir = os.path.join(base_dir, d) if base_dir != "." else d
+            if os.path.isdir(target_dir):
+                all_tracks.extend([
+                    os.path.join(target_dir, f) for f in os.listdir(target_dir)
+                    if f.lower().endswith(AUDIO_EXTENSIONS) and not f.startswith(".")
+                ])
             
     if all_tracks:
         chosen = random.choice(all_tracks)

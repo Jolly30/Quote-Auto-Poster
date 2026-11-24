@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 
 DB_PATH = "quotes.db"
-JSON_PATH = "quotes.json"
+JSON_PATH = os.path.join("quotes", "quotes.json") if os.path.exists(os.path.join("quotes", "quotes.json")) else "quotes.json"
 
 def setup_database():
     if os.path.exists(DB_PATH):
@@ -77,7 +77,9 @@ def setup_database():
     for cat in categories:
         # Check JSON files
         possible_json_files = [
+            os.path.join("quotes", f"{cat}.json"),
             f"{cat}.json",
+            os.path.join("quotes", f"{cat}_quotes.json"),
             f"{cat}_quotes.json",
             f"quotes_{cat}.json",
             os.path.join(cat, "quotes.json"),

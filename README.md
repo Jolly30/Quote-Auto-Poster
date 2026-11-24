@@ -127,19 +127,29 @@ This project includes custom Claude Code tooling:
 ## Project Structure
 
 ```
-├── video_generator.py    # Main pipeline script
-├── quotes.json           # 100+ curated motivational quotes
-├── quotes.db             # SQLite database for tracking
-├── setup_db.py           # Database setup script
-├── db_utils.py           # Database helper functions
-├── font.ttf              # Montserrat Bold font
+├── .github/workflows/    # GitHub Actions cron auto-posting workflow
+├── fonts/                # Custom Burmese fonts (YoeYar-One font.ttf)
+├── music/                # Categorized background music tracks
+│   ├── romance/
+│   ├── sad/
+│   ├── motivate/
+│   └── neutral/
+├── quotes/               # 200+ Categorized quotes datasets (JSON)
+│   ├── romance.json
+│   ├── sad.json
+│   ├── motivate.json
+│   └── neutral.json
+├── videos/               # Optional local Myanmar video clips
+├── docs/                 # Documentation, presentations, and slides
+│   ├── feedback/
+│   ├── screenshots/
+│   ├── slides/
+│   └── pitch.md
+├── video_generator.py    # Main video rendering & posting pipeline
+├── setup_db.py           # Database setup & quote loader script
+├── db_utils.py           # SQLite database utilities
+├── quotes.db             # SQLite database for post tracking & rotation
 ├── requirements.txt      # Python dependencies
-├── pitch.md              # Marp presentation slides
-├── final_post.mp4        # Last generated video
-├── screenshots/          # Project screenshots
-├── slides/               # Presentation slides
-├── .github/workflows/    # GitHub Actions cron job
-├── .claude/              # Claude Code agents & skills
 └── .mcp.json             # MCP server configuration
 ```
 

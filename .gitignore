@@ -9,4 +9,6 @@ voiceover.mp3
 quote_text.txt
 music.ogg
 feedback/database.db
+docs/feedback/database.db
+*.db-journal
 .claude/worktrees/
