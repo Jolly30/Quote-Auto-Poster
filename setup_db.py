@@ -67,18 +67,94 @@ def setup_database():
     cur.execute("CREATE INDEX idx_posts_status ON post_history(status)")
     cur.execute("CREATE INDEX idx_analytics_post ON analytics(post_id)")
 
-    # ── Load quotes from JSON ──
-    with open(JSON_PATH, "r") as f:
-        quotes = json.load(f)
+    total_loaded = 0
+    categories = ["romance", "sad", "motivate", "motivation", "neutral"]
 
-    for q in quotes:
-        cur.execute(
-            "INSERT INTO quotes (quote, author) VALUES (?, ?)",
-            (q["quote"], q.get("author", "Did you know?"))
-        )
+    # ── 1. Check & load quotes from category JSON & text files ──
+    # Supports e.g. neutral.json, romance.json, sad.json, motivate.json
+    # or romance.txt, sad.txt, etc.
+    found_category_files = False
+    for cat in categories:
+        # Check JSON files
+        possible_json_files = [
+            f"{cat}.json",
+            f"{cat}_quotes.json",
+            f"quotes_{cat}.json",
+            os.path.join(cat, "quotes.json"),
+            os.path.join(cat, f"{cat}.json")
+        ]
+        for pf in possible_json_files:
+            if os.path.exists(pf):
+                found_category_files = True
+                print(f"Loading quotes from JSON file: {pf} (category: {cat})")
+                with open(pf, "r", encoding="utf-8") as jf:
+                    data = json.load(jf)
+                    items = data if isinstance(data, list) else data.get("quotes", [])
+                    for item in items:
+                        if isinstance(item, dict):
+                            text = item.get("quote", "").strip()
+                            author = item.get("author", "")
+                        else:
+                            text = str(item).strip()
+                            author = ""
+                        if text:
+                            cur.execute(
+                                "INSERT INTO quotes (quote, author, category) VALUES (?, ?, ?)",
+                                (text, author, cat)
+                            )
+                            total_loaded += 1
+
+        # Check text files
+        possible_txt_files = [
+            f"{cat}.txt",
+            f"{cat}_quotes.txt",
+            f"quotes_{cat}.txt",
+            os.path.join(cat, "quotes.txt"),
+            os.path.join(cat, f"{cat}.txt")
+        ]
+        for pf in possible_txt_files:
+            if os.path.exists(pf):
+                found_category_files = True
+                print(f"Loading quotes from text file: {pf} (category: {cat})")
+                with open(pf, "r", encoding="utf-8") as tf:
+                    for line in tf:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            cur.execute(
+                                "INSERT INTO quotes (quote, author, category) VALUES (?, ?, ?)",
+                                (line, "", cat)
+                            )
+                            total_loaded += 1
+
+    # ── 2. Fall back to quotes.json only if no category files were found ──
+    if not found_category_files and os.path.exists(JSON_PATH):
+        with open(JSON_PATH, "r", encoding="utf-8") as f:
+            quotes_data = json.load(f)
+
+        if isinstance(quotes_data, list):
+            for q in quotes_data:
+                cur.execute(
+                    "INSERT INTO quotes (quote, author, category) VALUES (?, ?, ?)",
+                    (q["quote"], q.get("author", ""), q.get("category", "general"))
+                )
+                total_loaded += 1
+        elif isinstance(quotes_data, dict):
+            for cat, items in quotes_data.items():
+                for item in items:
+                    if isinstance(item, str):
+                        cur.execute(
+                            "INSERT INTO quotes (quote, author, category) VALUES (?, ?, ?)",
+                            (item.strip(), "", cat)
+                        )
+                    elif isinstance(item, dict):
+                        cur.execute(
+                            "INSERT INTO quotes (quote, author, category) VALUES (?, ?, ?)",
+                            (item.get("quote", "").strip(), item.get("author", ""), cat)
+                        )
+                    total_loaded += 1
 
     conn.commit()
-    print(f"Loaded {len(quotes)} quotes into {DB_PATH}")
+    print(f"Loaded {total_loaded} total quotes into {DB_PATH}")
 
     # ── Verify ──
     cur.execute("SELECT COUNT(*) FROM quotes")

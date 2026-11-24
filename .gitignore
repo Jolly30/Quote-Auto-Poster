@@ -1,0 +1,12 @@
+.DS_Store
+*/.DS_Store
+__pycache__/
+*.pyc
+font_montserrat_backup.ttf
+final_post.mp4
+background.mp4
+voiceover.mp3
+quote_text.txt
+music.ogg
+feedback/database.db
+.claude/worktrees/

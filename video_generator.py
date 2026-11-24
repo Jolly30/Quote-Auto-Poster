@@ -5,8 +5,6 @@ import random
 import requests
 import subprocess
 import textwrap
-import asyncio
-import edge_tts
 from datetime import datetime
 import db_utils
 
@@ -30,31 +28,22 @@ GITHUB_REPOSITORY = os.environ.get("GITHUB_REPOSITORY")  # e.g., "username/repo"
 PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY")
 
 # ==========================================
-# CALM & CINEMATIC VOICEOVER OPTIONS
+# VIDEO DURATION & MUSIC OPTIONS
 # ==========================================
-# Choose your voice style! Simply swap the default below or set VOICE_SELECTOR in env.
-# Highly Recommended Calm/Narrative Voices:
-# - "en-GB-RyanNeural"    (British Male - Calm, deep, documentary narrator style - DEFAULT)
-# - "en-US-BrianNeural"   (American Male - Warm, sincere, conversational and calm)
-# - "en-US-JennyNeural"   (American Female - Very soft, comforting, considerate)
-# - "en-US-AvaNeural"     (American Female - Warm, expressive, caring)
-# - "en-GB-SoniaNeural"   (British Female - Soothing, sophisticated)
-VOICE_SELECTOR = os.environ.get("VOICE_SELECTOR", "en-GB-RyanNeural")
+# Video duration in seconds (10 seconds is aesthetic and optimal for TikTok quote videos)
+VIDEO_DURATION = int(os.environ.get("VIDEO_DURATION", "10"))
 
-# Speaking speed rate (e.g. "-8%" makes it slightly slower, deeper, and calmer)
-VOICE_RATE = os.environ.get("VOICE_RATE", "-8%")
-
-# Voiceover speaking volume (e.g. "0.7" for softer, down from default "1.0")
-VOICE_VOLUME = float(os.environ.get("VOICE_VOLUME", "0.7"))
-
-# Background music volume (e.g. "0.05" for very soft, down from default "0.12")
-MUSIC_VOLUME = float(os.environ.get("MUSIC_VOLUME", "0.5"))
+# Background music volume (e.g. "0.8" for clean, full background music sound)
+MUSIC_VOLUME = float(os.environ.get("MUSIC_VOLUME", "0.8"))
 
 # ==========================================
 # TEXT CAPTIONS & STYLING OPTIONS
 # ==========================================
 # Default base font size (automatically scales down for long quotes to prevent crowding)
 FONT_SIZE = int(os.environ.get("FONT_SIZE", "58"))
+
+# Aesthetic font color (warm golden yellow: 0xFFDE59 or yellow)
+FONT_COLOR = os.environ.get("FONT_COLOR", "0xFFDE59")
 
 # Max character width per line before wrapping (24-26 is optimal for clean mobile viewing)
 TEXT_WRAP_WIDTH = int(os.environ.get("TEXT_WRAP_WIDTH", "25"))
@@ -64,19 +53,16 @@ TEXT_WRAP_WIDTH = int(os.environ.get("TEXT_WRAP_WIDTH", "25"))
 # ==========================================
 # Direct high-quality stock portrait MP4 CDN URLs from Mixkit.
 # Requires ZERO API keys, ZERO registrations, and has absolutely NO download limits!
+# Direct high-quality stock portrait MP4 CDN URLs (peaceful nature, serene rivers, rain, starry nights)
 DIRECT_VIDEO_URLS = [
     "https://assets.mixkit.co/videos/preview/mixkit-starry-night-sky-over-a-silent-river-portrait-42861-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-time-lapse-of-a-starry-night-sky-portrait-42858-large.mp4",
     "https://assets.mixkit.co/videos/preview/mixkit-vertical-shot-of-the-night-sky-with-stars-and-clouds-42934-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-light-trails-of-traffic-on-a-city-street-at-night-portrait-43033-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-neon-light-from-a-building-reflected-in-a-wet-street-portrait-43015-large.mp4",
     "https://assets.mixkit.co/videos/preview/mixkit-rain-falling-on-a-window-at-night-portrait-42999-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-wet-street-with-neon-lights-at-night-portrait-43029-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-cyberpunk-neon-city-street-portrait-43030-large.mp4",
     "https://assets.mixkit.co/videos/preview/mixkit-night-sky-with-shining-stars-portrait-42862-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-a-city-at-night-with-bright-lights-portrait-43027-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-futuristic-abstract-neon-hexagons-background-loop-portrait-42978-large.mp4",
-    "https://assets.mixkit.co/videos/preview/mixkit-futuristic-abstract-glowing-neon-tunnel-portrait-42977-large.mp4"
+    "https://assets.mixkit.co/videos/preview/mixkit-calm-river-with-green-trees-portrait-42930-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-raindrops-on-green-leaves-portrait-43243-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-fog-over-a-green-mountain-landscape-portrait-43224-large.mp4",
+    "https://assets.mixkit.co/videos/preview/mixkit-sun-setting-over-the-ocean-horizon-portrait-42928-large.mp4"
 ]
 
 # ==========================================
@@ -132,11 +118,20 @@ def download_file(url, output_path, headers=None, use_curl=True):
             os.remove(output_path)
         return False
 
-# Alternate search terms if Pexels API key is supplied
+# Curated cinematic search terms focused on Myanmar culture, environment, and high-aesthetic landscapes
 PEXELS_SEARCH_TERMS = [
-    "night city portrait", "cyberpunk neon vertical", "starry sky portrait",
-    "milky way space vertical", "night traffic lights vertical", "city skyline night portrait",
-    "abstract neon loop vertical", "galaxy space portrait", "night streets vertical"
+    "Bagan pagoda sunrise vertical aesthetic",
+    "Myanmar golden hour temple vertical",
+    "Inle lake fishermen sunset cinematic vertical",
+    "Buddhist temple candles aesthetic vertical",
+    "Southeast Asia misty mountains morning vertical",
+    "Asian rain on green leaves cinematic vertical",
+    "Bagan hot air balloons sunrise portrait 4k",
+    "Monk walking ancient pagoda vertical cinematic",
+    "Mandalay bridge sunset reflection vertical",
+    "peaceful Asian countryside river foggy vertical",
+    "ancient temple ruins nature vertical aesthetic",
+    "tropical rainforest waterfall vertical aesthetic"
 ]
 
 def log(message):
@@ -157,37 +152,53 @@ def check_requirements():
         log("ERROR: FFmpeg is not installed or not in system PATH! Please install FFmpeg.")
         sys.exit(1)
 
-def get_random_quote():
-    log("Selecting fun fact from SQLite database...")
+# Audio extensions supported for background music
+AUDIO_EXTENSIONS = ('.mp3', '.m4a', '.ogg', '.wav', '.aac', '.flac')
+
+def is_burmese_text(text):
+    """Detect if text contains Myanmar (Burmese) Unicode characters."""
+    for char in text:
+        if '\u1000' <= char <= '\u109F':
+            return True
+    return False
+
+def get_random_quote(category=None):
+    log("Selecting quote from SQLite database...")
     try:
-        quote_data = db_utils.get_least_used_quote()
+        quote_data = db_utils.get_least_used_quote(category=category)
         if not quote_data:
             raise Exception("No quotes found in database.")
         
         quote_text = quote_data["quote"]
         quote_id = quote_data["id"]
+        quote_category = quote_data.get("category", "general")
         
-        # On screen, only show the quote text (no "did you know" and no author)
-        display_text = f"\"{quote_text}\""
-        # Spoken voiceover starts with "Did you know?"
-        speak_text = f"Did you know? {quote_text}"
-        log(f"Selected Fact: {quote_text}")
+        # In the video, only show the pure quote text (no quotation marks, clean and direct)
+        display_text = quote_text.strip()
+        log(f"Selected Quote [{quote_category}]: {display_text}")
         
         # Mark as used
         db_utils.mark_quote_used(quote_id)
         
-        return display_text, speak_text, quote_id
+        return display_text, quote_id, quote_category
     except Exception as e:
         log(f"ERROR reading from database: {e}")
         fallback_text = "Bananas are curved because they grow towards the sun against gravity."
-        return f"\"{fallback_text}\"", f"Did you know? {fallback_text}", None
+        return fallback_text, None, "general"
 
 def download_font():
-    font_path = "font.ttf"
-    if os.path.exists(font_path):
-        return font_path
+    # 1. Prioritize local custom font files
+    custom_fonts = [
+        "font.ttf",
+        "ရိုးရာ_Regular (2).ttf"
+    ]
+    for font_path in custom_fonts:
+        if os.path.exists(font_path):
+            log(f"Custom font detected: {font_path}")
+            return font_path
     
     log("Downloading premium modern font (Montserrat)...")
+    font_path = "font.ttf"
     url = "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-Bold.ttf"
     if download_file(url, font_path):
         log("Font downloaded successfully.")
@@ -196,46 +207,44 @@ def download_font():
         log("WARNING: Could not download Montserrat font. Falling back to system default.")
         return "Arial"
 
-def generate_voiceover(text, output_file="voiceover.mp3"):
-    log(f"Synthesizing neural voiceover via edge-tts (Voice: '{VOICE_SELECTOR}', Rate: '{VOICE_RATE}')...")
-    clean_text = text.replace("\n", " ").replace("\"", "").replace("—", "by")
-    
-    async def _synthesize():
-        try:
-            communicate = edge_tts.Communicate(clean_text, VOICE_SELECTOR, rate=VOICE_RATE)
-            await communicate.save(output_file)
-            log("Voiceover generated successfully.")
-        except Exception as e:
-            log(f"CRITICAL ERROR inside edge-tts Communicate: {type(e).__name__}: {e}")
-            raise e
+def download_background_video(output_file="background.mp4", category=None):
+    """
+    Selects or downloads a background video focused on Myanmar culture/environment:
+    1. Checks local 'videos/' folder (or 'videos/<category>/') for user-provided Myanmar clips.
+    2. Searches Pexels for Myanmar, Bagan, pagodas, Asian nature & culture.
+    3. Falls back to curated peaceful nature/river direct CDN clips.
+    """
+    import shutil
+    video_extensions = ('.mp4', '.mov', '.m4v', '.webm')
+    local_candidates = []
 
-    try:
-        asyncio.run(_synthesize())
-    except Exception as e:
-        log(f"ERROR: edge-tts voiceover synthesis failed! Details: {e}")
-        log(f"Attempted text: '{clean_text}'")
-        log(f"Selected voice: '{VOICE_SELECTOR}'")
-        sys.exit(1)
+    # Check category subfolder (e.g. videos/romance, videos/sad)
+    if category:
+        cat_folder = os.path.join("videos", category)
+        if os.path.isdir(cat_folder):
+            local_candidates.extend([
+                os.path.join(cat_folder, f) for f in os.listdir(cat_folder)
+                if f.lower().endswith(video_extensions) and not f.startswith(".")
+            ])
 
-def get_audio_duration(file_path="voiceover.mp3"):
-    try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", file_path],
-            capture_output=True, text=True, check=True
-        )
-        duration = float(result.stdout.strip())
-        log(f"Voiceover duration: {duration:.2f} seconds.")
-        return duration
-    except Exception as e:
-        log(f"WARNING: Could not read duration with ffprobe ({e}). Defaulting to 15 seconds.")
-        return 15.0
+    # Check root videos folder
+    if os.path.isdir("videos"):
+        local_candidates.extend([
+            os.path.join("videos", f) for f in os.listdir("videos")
+            if f.lower().endswith(video_extensions) and not f.startswith(".")
+        ])
 
-def download_background_video(output_file="background.mp4"):
-    # If Pexels key is provided, search Pexels. Otherwise, download a direct vertical video from Mixkit.
+    if local_candidates:
+        chosen = random.choice(local_candidates)
+        log(f"Using local Myanmar background video: {chosen}")
+        shutil.copy2(chosen, output_file)
+        return output_file
+
+    # If Pexels key is provided, search Pexels for Myanmar / pagoda / Asian nature
     if PEXELS_API_KEY:
-        log("PEXELS_API_KEY detected. Searching Pexels for a portrait video...")
-        headers = {"Authorization": PEXELS_API_KEY}
         search_term = random.choice(PEXELS_SEARCH_TERMS)
+        log(f"PEXELS_API_KEY detected. Searching Pexels for '{search_term}'...")
+        headers = {"Authorization": PEXELS_API_KEY}
         url = f"https://api.pexels.com/videos/search?query={search_term}&per_page=15&orientation=portrait"
         
         try:
@@ -254,19 +263,19 @@ def download_background_video(output_file="background.mp4"):
                     download_url = video_files[0].get("link")
                 
                 if download_url:
-                    log("Downloading background from Pexels CDN...")
+                    log(f"Downloading Myanmar-themed background from Pexels ({search_term})...")
                     if download_file(download_url, output_file, headers=headers):
                         log("Pexels background video downloaded successfully.")
                         return output_file
         except Exception as e:
-            log(f"Pexels API download failed ({e}). Falling back to free direct Mixkit CDN...")
+            log(f"Pexels API download failed ({e}). Falling back to free direct serene CDN...")
 
     # Primary or Fallback Option: Mixkit Direct CDN URLs (100% Free, Unlimited, Keyless)
-    log("Accessing 100% Free Direct Mixkit vertical video CDN...")
+    log("Accessing 100% Free Direct serene nature vertical video CDN...")
     download_url = random.choice(DIRECT_VIDEO_URLS)
     
     if download_file(download_url, output_file):
-        log("Mixkit background video downloaded successfully with ZERO keys!")
+        log("Background video downloaded successfully with ZERO keys!")
         return output_file
     else:
         log("Creating vertical gradient background as final safety fallback...")
@@ -277,10 +286,58 @@ def download_background_video(output_file="background.mp4"):
         log("Safety vertical background generated.")
         return output_file
 
+def get_category_music(category=None):
+    """
+    Finds a random music track from the corresponding category folder
+    (e.g., 'romance', 'sad', 'motivate'/'motivation', 'neutral').
+    Falls back to any local music in root or any category folder.
+    """
+    category_folders = []
+    if category:
+        cat_lower = category.lower().strip()
+        category_folders.append(cat_lower)
+        if cat_lower == "motivation":
+            category_folders.append("motivate")
+        elif cat_lower == "motivate":
+            category_folders.append("motivation")
+            
+    for folder in category_folders:
+        if os.path.isdir(folder):
+            tracks = [
+                os.path.join(folder, f) for f in os.listdir(folder)
+                if f.lower().endswith(AUDIO_EXTENSIONS) and not f.startswith(".")
+            ]
+            if tracks:
+                chosen = random.choice(tracks)
+                log(f"Selected category background music from [{folder}]: {chosen}")
+                return chosen
+
+    # Check root level local music
+    for f in os.listdir("."):
+        if f.lower().startswith("music.") and f.lower().endswith(AUDIO_EXTENSIONS):
+            log(f"Using root music file: {f}")
+            return f
+
+    # Fallback to any track from any category folder
+    all_tracks = []
+    for d in ["romance", "sad", "motivate", "motivation", "neutral"]:
+        if os.path.isdir(d):
+            all_tracks.extend([
+                os.path.join(d, f) for f in os.listdir(d)
+                if f.lower().endswith(AUDIO_EXTENSIONS) and not f.startswith(".")
+            ])
+            
+    if all_tracks:
+        chosen = random.choice(all_tracks)
+        log(f"Selected fallback background music: {chosen}")
+        return chosen
+
+    return None
+
 def download_background_music(output_file="music.ogg"):
     """
     Downloads a random royalty-free background track from the curated direct CDN list
-    if there is no local 'music.mp3' or 'music.ogg' file provided by the user.
+    if there is no local music file found.
     Returns True if music was auto-downloaded, False otherwise.
     """
     if os.path.exists("music.mp3") or os.path.exists("music.ogg"):
@@ -299,8 +356,8 @@ def download_background_music(output_file="music.ogg"):
             os.remove(output_file)
         return False
 
-def render_final_video(quote_text, font_path, voice_duration, video_file="background.mp4", audio_file="voiceover.mp3", output_file="final_post.mp4"):
-    log("Compiling final video with stylized centered captions using FFmpeg...")
+def render_final_video(quote_text, font_path, video_file="background.mp4", output_file="final_post.mp4", music_file=None, duration=VIDEO_DURATION):
+    log(f"Compiling final video ({duration}s) with stylized centered captions using FFmpeg...")
     
     # Word wrap lines for clean vertical framing on phone screens
     wrapped_lines = []
@@ -333,7 +390,11 @@ def render_final_video(quote_text, font_path, voice_duration, video_file="backgr
     elif num_lines >= 4:
         dynamic_font_size = max(44, int(FONT_SIZE * 0.82))  # scale down by 18% for medium-long quotes
         
-    style_filter = f"fontsize={dynamic_font_size}:fontcolor=white:borderw=5:bordercolor=black:x=(w-text_w)/2:y=(h-text_h)/2:line_spacing=14:expansion=none"
+    # High-aesthetic typography styling:
+    # 1. Warm aesthetic yellow font color with soft drop shadow + subtle outline
+    # 2. line_spacing=22 gives Myanmar vowels and tone diacritics ample breathing room without clipping
+    # 3. y=(h-text_h)/2-50 safely positions the quote above TikTok's bottom captions/music bar
+    style_filter = f"fontsize={dynamic_font_size}:fontcolor={FONT_COLOR}:shadowcolor=black@0.85:shadowx=3:shadowy=4:borderw=2:bordercolor=black@0.6:x=(w-text_w)/2:y=(h-text_h)/2-50:line_spacing=22:expansion=none"
     
     if ":" in font_path:
         font_path_escaped = font_path.replace(":", "\\:")
@@ -342,44 +403,51 @@ def render_final_video(quote_text, font_path, voice_duration, video_file="backgr
         else:
             font_filter = f"fontfile='{font_path_escaped}':text='{escaped_text}'"
 
-    music_file = None
-    if os.path.exists("music.mp3"):
-        music_file = "music.mp3"
-    elif os.path.exists("music.ogg"):
-        music_file = "music.ogg"
+    if not music_file:
+        if os.path.exists("music.mp3"):
+            music_file = "music.mp3"
+        elif os.path.exists("music.ogg"):
+            music_file = "music.ogg"
         
     has_music = music_file is not None
+
+    # Cinematic video pipeline:
+    # 1. scale & crop to perfect 1080x1920 vertical format without distortion
+    # 2. eq: subtle moody contrast & rich saturation boost so text pops like a movie frame
+    # 3. drawtext: elegant styled typography overlay
+    video_filter = f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=brightness=-0.10:contrast=1.12:saturation=1.15,drawtext={font_filter}:{style_filter}"
     
     cmd = [
         "ffmpeg", "-y",
-        "-stream_loop", "-1", "-i", video_file,
-        "-i", audio_file
+        "-stream_loop", "-1", "-i", video_file
     ]
     if has_music:
-        log(f"Optional background music ({music_file}) detected. Mixing into final video...")
+        log(f"Aesthetic background music ({music_file}) selected. Mixing into final video...")
         cmd.extend(["-stream_loop", "-1", "-i", music_file])
         
     cmd.extend([
-        "-t", f"{voice_duration + 1.0:.2f}",
-        "-vf", f"drawtext={font_filter}:{style_filter},scale=1080:1920"
+        "-t", str(duration),
+        "-vf", video_filter
     ])
     if has_music:
-        # Mix voiceover (input 1) and background music (input 2)
-        # Voiceover volume and music volume dynamically configured
-        # amix inputs=2:duration=first makes it end when the voiceover ends
+        # Smooth cinematic audio fade-in (1.0s) and fade-out (2.0s)
+        fade_start = max(1.0, duration - 2.0)
         cmd.extend([
-            "-filter_complex", f"[1:a]volume={VOICE_VOLUME}[v_audio];[2:a]volume={MUSIC_VOLUME}[bg_audio];[v_audio][bg_audio]amix=inputs=2:duration=first:dropout_transition=2[a]",
+            "-filter_complex", f"[1:a]volume={MUSIC_VOLUME},afade=t=in:ss=0:d=1.0,afade=t=out:st={fade_start:.1f}:d=2.0[a]",
             "-map", "0:v",
-            "-map", "[a]"
+            "-map", "[a]",
+            "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.0",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            "-shortest",
+            output_file
         ])
-        
-    cmd.extend([
-        "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.0",
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "192k",
-        "-shortest",
-        output_file
-    ])
+    else:
+        cmd.extend([
+            "-c:v", "libx264", "-profile:v", "high", "-level:v", "4.0",
+            "-pix_fmt", "yuv420p",
+            output_file
+        ])
     
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -392,57 +460,62 @@ def render_final_video(quote_text, font_path, voice_duration, video_file="backgr
             fallback_text_filter = f"textfile='{quote_file}'" if os.path.exists(quote_file) else f"text='{escaped_text}'"
             fallback_cmd = [
                 "ffmpeg", "-y",
-                "-stream_loop", "-1", "-i", video_file,
-                "-i", audio_file
+                "-stream_loop", "-1", "-i", video_file
             ]
             if has_music:
                 fallback_cmd.extend(["-stream_loop", "-1", "-i", music_file])
                 
+            fallback_video_filter = f"scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,eq=brightness=-0.10:contrast=1.12:saturation=1.15,drawtext={fallback_text_filter}:fontsize={dynamic_font_size - 4}:fontcolor={FONT_COLOR}:shadowcolor=black@0.85:shadowx=3:shadowy=4:borderw=2:bordercolor=black@0.6:x=(w-text_w)/2:y=(h-text_h)/2-50:line_spacing=22:expansion=none"
             fallback_cmd.extend([
-                "-t", f"{voice_duration + 1.0:.2f}",
-                "-vf", f"drawtext={fallback_text_filter}:fontsize={dynamic_font_size - 4}:fontcolor=white:borderw=4:bordercolor=black:x=(w-text_w)/2:y=(h-text_h)/2:expansion=none,scale=1080:1920"
+                "-t", str(duration),
+                "-vf", fallback_video_filter
             ])
             if has_music:
+                fade_start = max(1.0, duration - 2.0)
                 fallback_cmd.extend([
-                    "-filter_complex", f"[1:a]volume={VOICE_VOLUME}[v_audio];[2:a]volume={MUSIC_VOLUME}[bg_audio];[v_audio][bg_audio]amix=inputs=2:duration=first:dropout_transition=2[a]",
+                    "-filter_complex", f"[1:a]volume={MUSIC_VOLUME},afade=t=in:ss=0:d=1.0,afade=t=out:st={fade_start:.1f}:d=2.0[a]",
                     "-map", "0:v",
-                    "-map", "[a]"
+                    "-map", "[a]",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
+                    output_file
                 ])
-                
-            fallback_cmd.extend([
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
-                output_file
-            ])
+            else:
+                fallback_cmd.extend([
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                    output_file
+                ])
             subprocess.run(fallback_cmd, check=True)
             log("Fallback video successfully rendered.")
             return output_file
         except Exception as ex:
             log(f"WARNING: Fallback text rendering failed ({ex}).")
-            log("Attempting final fallback (no captions, audio + video only)...")
+            log("Attempting final fallback (no captions, background video + music)...")
             try:
                 no_caption_cmd = [
                     "ffmpeg", "-y",
-                    "-stream_loop", "-1", "-i", video_file,
-                    "-i", audio_file
+                    "-stream_loop", "-1", "-i", video_file
                 ]
                 if has_music:
                     no_caption_cmd.extend(["-stream_loop", "-1", "-i", music_file])
                     
                 no_caption_cmd.extend([
-                    "-t", f"{voice_duration + 1.0:.2f}",
+                    "-t", str(duration),
                     "-vf", "scale=1080:1920"
                 ])
                 if has_music:
+                    fade_start = max(1.0, duration - 1.5)
                     no_caption_cmd.extend([
-                        "-filter_complex", f"[1:a]volume={VOICE_VOLUME}[v_audio];[2:a]volume={MUSIC_VOLUME}[bg_audio];[v_audio][bg_audio]amix=inputs=2:duration=first:dropout_transition=2[a]",
+                        "-filter_complex", f"[1:a]volume={MUSIC_VOLUME},afade=t=out:st={fade_start:.1f}:d=1.5[a]",
                         "-map", "0:v",
-                        "-map", "[a]"
+                        "-map", "[a]",
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
+                        output_file
                     ])
-                    
-                no_caption_cmd.extend([
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
-                    output_file
-                ])
+                else:
+                    no_caption_cmd.extend([
+                        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                        output_file
+                    ])
                 subprocess.run(no_caption_cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 log("Fallback video (no captions) successfully rendered!")
                 return output_file
@@ -567,11 +640,33 @@ def upload_to_free_cdn(file_path):
                 return None
 
 
-def post_to_tiktok_via_buffer(video_url, quote_text):
+def generate_caption_and_hashtags(category="general"):
+    """
+    Generates TikTok post caption containing ONLY hashtags (user's #fyp #စာတို + viral tags).
+    """
+    # Base core hashtags (including user specified #fyp and #စာတို)
+    base_tags = ["#fyp", "#စာတို", "#foryou", "#foryoupage", "#tiktokmyanmar", "#myanmar", "#aesthetic", "#quotes"]
+    
+    cat = (category or "").lower().strip()
+    if cat == "romance":
+        cat_tags = ["#အချစ်", "#crush", "#lovequotes", "#romance", "#feelings"]
+    elif cat == "sad":
+        cat_tags = ["#sad", "#ဝမ်းနည်းခြင်း", "#နာကျင်မှု", "#brokenheart", "#lonely", "#ခံစားချက်"]
+    elif cat in ("motivate", "motivation"):
+        cat_tags = ["#motivation", "#ခွန်အား", "#အောင်မြင်မှု", "#ကြိုးစားမှု", "#mindset", "#success"]
+    elif cat == "neutral":
+        cat_tags = ["#peaceful", "#အေးချမ်းမှု", "#chill", "#life", "#relax", "#စိတ်အေးချမ်းမှု"]
+    else:
+        cat_tags = ["#စာပေ", "#trending"]
+
+    all_tags = base_tags + cat_tags
+    return " ".join(all_tags)
+
+def post_to_tiktok_via_buffer(video_url, quote_text, category="general"):
     log("Connecting to Buffer API to post to TikTok...")
     
-    raw_caption = quote_text.split("\n\n")[0].replace("\"", "")
-    social_caption = f"\"{raw_caption}\" 💡✨ #funfacts #didyouknow #factsdaily #amazingfacts #knowledge #education #fyp #viral"
+    social_caption = generate_caption_and_hashtags(category=category)
+    log(f"Generated TikTok Caption & Hashtags:\n{social_caption}")
     
     # Try Modern GraphQL API First (Mandatory for new accounts in 2026)
     try:
@@ -738,7 +833,7 @@ def post_to_tiktok_via_buffer(video_url, quote_text):
 
 def clean_temp_files(delete_music=False):
     log("Cleaning up local temporary files...")
-    temp_files = ["voiceover.mp3", "background.mp4", "quote_text.txt"]
+    temp_files = ["background.mp4", "quote_text.txt"]
     if delete_music:
         temp_files.append("music.ogg")
     for f in temp_files:
@@ -753,24 +848,25 @@ if __name__ == "__main__":
     log("Starting TikTok Quotes Auto-Post Pipeline...")
     check_requirements()
     
-    # 1. Select Quote
-    quote_display, quote_speak, quote_id = get_random_quote()
+    # 1. Select Quote (with category)
+    quote_display, quote_id, quote_category = get_random_quote()
     
     # 2. Setup font
     font = download_font()
     
-    # 3. Generate speech voice file
-    generate_voiceover(quote_speak, "voiceover.mp3")
-    audio_dur = get_audio_duration("voiceover.mp3")
+    # 3. Select background video (local Myanmar video, or Pexels Myanmar culture search)
+    download_background_video("background.mp4", category=quote_category)
     
-    # 4. Download background video (Mixkit Direct CDN or Pexels)
-    download_background_video("background.mp4")
+    # 4. Select matching category background music (or download default if none exists)
+    selected_music = get_category_music(quote_category)
+    music_downloaded = False
+    if not selected_music:
+        music_downloaded = download_background_music("music.ogg")
+        if os.path.exists("music.ogg"):
+            selected_music = "music.ogg"
     
-    # 4.5 Download default background music if not present
-    music_downloaded = download_background_music("music.ogg")
-    
-    # 5. Render video locally via FFmpeg
-    final_video = render_final_video(quote_display, font, audio_dur, "background.mp4", "voiceover.mp3", "final_post.mp4")
+    # 5. Render video locally via FFmpeg with custom font, background video & music
+    final_video = render_final_video(quote_display, font, video_file="background.mp4", output_file="final_post.mp4", music_file=selected_music, duration=VIDEO_DURATION)
     
     # 6. Upload compiled video to free cloud hosting
     direct_link = None
@@ -805,8 +901,8 @@ if __name__ == "__main__":
         log("Running locally (skipping cloud hosting). Output saved as 'final_post.mp4'.")
     
     if direct_link:
-        # 7. Post via Buffer API
-        post_to_tiktok_via_buffer(direct_link, quote_display)
+        # 7. Post via Buffer API with aesthetic category hashtags
+        post_to_tiktok_via_buffer(direct_link, quote_display, category=quote_category)
         
         if quote_id:
             db_utils.record_post(quote_id, video_path="final_post.mp4", cdn_url=direct_link, status="posted")

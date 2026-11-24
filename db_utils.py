@@ -11,19 +11,32 @@ DB_PATH = "quotes.db"
 def get_connection():
     return sqlite3.connect(DB_PATH)
 
-def get_least_used_quote():
+def get_least_used_quote(category=None):
     """Pick a quote that hasn't been posted yet, or the least used one."""
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("""
-        SELECT id, quote, author FROM quotes
-        ORDER BY used_count ASC, RANDOM()
-        LIMIT 1
-    """)
+    if category:
+        cur.execute("""
+            SELECT id, quote, author, category FROM quotes
+            WHERE category = ?
+            ORDER BY used_count ASC, RANDOM()
+            LIMIT 1
+        """, (category,))
+    else:
+        cur.execute("""
+            SELECT id, quote, author, category FROM quotes
+            ORDER BY used_count ASC, RANDOM()
+            LIMIT 1
+        """)
     row = cur.fetchone()
     conn.close()
     if row:
-        return {"id": row[0], "quote": row[1], "author": row[2]}
+        return {
+            "id": row[0],
+            "quote": row[1],
+            "author": row[2],
+            "category": row[3] if len(row) > 3 and row[3] else "general"
+        }
     return None
 
 def mark_quote_used(quote_id):
