@@ -29,11 +29,14 @@ jobs:
         python-version: '3.10'
         cache: 'pip'
 
-    # Step 3: Install FFmpeg on Cloud Server (Ensures ffmpeg is fully updated/available)
-    - name: Install FFmpeg on Cloud Server
+    # Step 3: Verify or Setup FFmpeg (Pre-installed on ubuntu-latest)
+    - name: Verify FFmpeg
       run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        if ! command -v ffmpeg &> /dev/null; then
+          sudo apt-get update -y && sudo apt-get install -y --no-install-recommends ffmpeg
+        else
+          echo "FFmpeg is ready: $(ffmpeg -version | head -n 1)"
+        fi
 
     # Step 4: Install python dependencies (edge-tts and requests)
     - name: Install Dependencies

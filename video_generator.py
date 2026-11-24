@@ -86,8 +86,8 @@ def download_file(url, output_path, headers=None, use_curl=True):
     # Try curl first (most robust against bot-blocking CDN configurations)
     if use_curl:
         try:
-            # Build curl command with -f to fail on HTTP errors (e.g., 403 Forbidden)
-            cmd = ["curl", "-L", "-f", "-s", "-o", output_path]
+            # Build curl command with fast connection and download timeouts
+            cmd = ["curl", "-L", "-f", "-s", "--connect-timeout", "15", "--max-time", "60", "-o", output_path]
             # Use standard desktop browser User-Agent to ensure highest compatibility
             cmd.extend(["-A", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"])
             if headers:
@@ -95,7 +95,7 @@ def download_file(url, output_path, headers=None, use_curl=True):
                     cmd.extend(["-H", f"{k}: {v}"])
             cmd.append(url)
             
-            subprocess.run(cmd, check=True)
+            subprocess.run(cmd, check=True, timeout=65)
             if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
                 return True
         except Exception as e:
